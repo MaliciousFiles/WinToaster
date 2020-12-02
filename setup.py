@@ -19,7 +19,7 @@ requirements_txt = parse_requirements(from_here("requirements.txt"))
 
 setup(
     name="win10toast",
-    version="0.9",
+    version="0.93",
     install_requires=requirements_txt,
     packages=["win10toast"],
     license="BSD",
