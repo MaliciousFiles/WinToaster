@@ -14,6 +14,8 @@ from os import path
 from pkg_resources import Requirement
 from pkg_resources import resource_filename
 from time import sleep
+from winsound import SND_FILENAME
+from winsound import PlaySound
 
 # 3rd party modules
 from win32api import GetModuleHandle
@@ -37,6 +39,7 @@ from win32gui import NIF_TIP
 from win32gui import NIM_ADD
 from win32gui import NIM_DELETE
 from win32gui import NIM_MODIFY
+from win32gui import NIIF_NOSOUND
 from win32gui import RegisterClass
 from win32gui import UnregisterClass
 from win32gui import Shell_NotifyIcon
@@ -78,6 +81,7 @@ class ToastNotifier(object):
 
     def _show_toast(self, title, msg,
                     icon_path, duration,
+                    sound_path,
                     callback_on_click):
         """Notification settings.
 
@@ -85,18 +89,28 @@ class ToastNotifier(object):
         :msg: notification message
         :icon_path: path to the .ico file to custom notification
         :duration: delay in seconds before notification self-destruction, None for no-self-destruction
+        :sound_path: path to the .wav file to custom notification
         """
+        self.duration=duration
 
+        # Make the notification end on click
+        def callback():            
+            self.duration=0
+
+            if callback_on_click is not None:
+                callback_on_click()
+        
         # Register the window class.
         self.wc = WNDCLASS()
         self.hinst = self.wc.hInstance = GetModuleHandle(None)
         self.wc.lpszClassName = str("PythonTaskbar")  # must be a string
-        self.wc.lpfnWndProc = self._decorator(self.wnd_proc, callback_on_click)  # could instead specify simple mapping
+        self.wc.lpfnWndProc = self._decorator(self.wnd_proc, callback)  # could instead specify simple mapping
         try:
             self.classAtom = RegisterClass(self.wc)
         except Exception as e:
             logging.error("Some trouble with classAtom ({})".format(e))
         style = WS_OVERLAPPED | WS_SYSMENU
+        buttonStyle = WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON
         self.hwnd = CreateWindow(self.classAtom, "Taskbar", style,
                                  0, 0, CW_USEDEFAULT,
                                  CW_USEDEFAULT,
@@ -123,34 +137,51 @@ class ToastNotifier(object):
         Shell_NotifyIcon(NIM_ADD, nid)
         Shell_NotifyIcon(NIM_MODIFY, (self.hwnd, 0, NIF_INFO,
                                       WM_USER + 20,
-                                      hicon, "Balloon Tooltip", msg, 200,
-                                      title))
+                                      hicon, "Baloon Tooltip", msg, 0,
+                                      title, 0 if sound_path == None else NIIF_NOSOUND))
+        # play the custom sound
+        if sound_path is not None:
+            sound_path = path.realpath(sound_path)
+            if not path.exists(sound_path):
+                logging.error("Some trouble with the sound file ({}): [Errno 2] No such file"
+                              .format(sound_path))
+
+            try:
+                PlaySound(sound_path, SND_FILENAME)
+            except Exception as e:
+                logging.error("Some trouble with the sound file ({}): {}"
+                             .format(sound_path, e))
+        
         PumpMessages()
         # take a rest then destroy
         if duration is not None:
-            sleep(duration)
+            while self.duration > 0:
+                sleep(0.1)
+                self.duration -= 0.1
+                
             DestroyWindow(self.hwnd)
-            UnregisterClass(self.wc.lpszClassName, None)
+            UnregisterClass(self.wc.lpszClassName, self.hinst)
         return None
 
     def show_toast(self, title="Notification", msg="Here comes the message",
-                    icon_path=None, duration=5, threaded=False, callback_on_click=None):
+                    icon_path=None, duration=0, sound_path=None, threaded=False, callback_on_click=None):
         """Notification settings.
 
         :title: notification title
         :msg: notification message
         :icon_path: path to the .ico file to custom notification
+        :sound_path: path to the .wav file to custom notification
         :duration: delay in seconds before notification self-destruction, None for no-self-destruction
         """
         if not threaded:
-            self._show_toast(title, msg, icon_path, duration, callback_on_click)
+            self._show_toast(title, msg, icon_path, duration, sound_path, callback_on_click)
         else:
             if self.notification_active():
                 # We have an active notification, let is finish so we don't spam them
                 return False
 
             self._thread = threading.Thread(target=self._show_toast, args=(
-                title, msg, icon_path, duration, callback_on_click
+                title, msg, icon_path, duration, sound_path, callback_on_click
             ))
             self._thread.start()
         return True
