@@ -81,7 +81,7 @@ class ToastNotifier(object):
 
     def _show_toast(self, title, msg,
                     icon_path, duration,
-                    sound_path,
+                    sound_path, tooltip,
                     callback_on_click):
         """Notification settings.
 
@@ -133,11 +133,11 @@ class ToastNotifier(object):
 
         # Taskbar icon
         flags = NIF_ICON | NIF_MESSAGE | NIF_TIP
-        nid = (self.hwnd, 0, flags, WM_USER + 20, hicon, "Tooltip")
+        nid = (self.hwnd, 0, flags, WM_USER + 20, hicon, tooltip)
         Shell_NotifyIcon(NIM_ADD, nid)
         Shell_NotifyIcon(NIM_MODIFY, (self.hwnd, 0, NIF_INFO,
                                       WM_USER + 20,
-                                      hicon, "Baloon Tooltip", msg, 0,
+                                      hicon, tooltip, msg, 0,
                                       title, 0 if sound_path == None else NIIF_NOSOUND))
         # play the custom sound
         if sound_path is not None:
@@ -164,7 +164,8 @@ class ToastNotifier(object):
         return None
 
     def show_toast(self, title="Notification", msg="Here comes the message",
-                    icon_path=None, duration=0, sound_path=None, threaded=False, callback_on_click=None):
+                    icon_path=None, duration=0, sound_path=None,
+                    tooltip="Tooltip", threaded=False, callback_on_click=None):
         """Notification settings.
 
         :title: notification title
@@ -174,14 +175,14 @@ class ToastNotifier(object):
         :duration: delay in seconds before notification self-destruction, None for no-self-destruction
         """
         if not threaded:
-            self._show_toast(title, msg, icon_path, duration, sound_path, callback_on_click)
+            self._show_toast(title, msg, icon_path, duration, sound_path, tooltip, callback_on_click)
         else:
             if self.notification_active():
                 # We have an active notification, let is finish so we don't spam them
                 return False
 
             self._thread = threading.Thread(target=self._show_toast, args=(
-                title, msg, icon_path, duration, sound_path, callback_on_click
+                title, msg, icon_path, duration, sound_path, tooltip, callback_on_click
             ))
             self._thread.start()
         return True
