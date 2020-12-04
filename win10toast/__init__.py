@@ -14,8 +14,11 @@ from os import path
 from pkg_resources import Requirement
 from pkg_resources import resource_filename
 from time import sleep
+from time import time
 from winsound import SND_FILENAME
 from winsound import PlaySound
+from winreg import OpenKeyEx, SetValueEx, EnumValue, CloseKey, REG_DWORD, KEY_QUERY_VALUE, KEY_SET_VALUE, ConnectRegistry, HKEY_CURRENT_USER
+from random import randint
 
 # 3rd party modules
 from win32api import GetModuleHandle
@@ -28,10 +31,13 @@ from win32con import LR_LOADFROMFILE
 from win32con import WM_USER
 from win32con import WS_OVERLAPPED
 from win32con import WS_SYSMENU
+from win32con import HWND_BROADCAST
+from win32con import WM_SETTINGCHANGE
 from win32gui import CreateWindow
 from win32gui import DestroyWindow
 from win32gui import LoadIcon
 from win32gui import LoadImage
+from win32gui import SendMessage
 from win32gui import NIF_ICON
 from win32gui import NIF_INFO
 from win32gui import NIF_MESSAGE
@@ -62,6 +68,8 @@ class ToastNotifier(object):
     from: https://github.com/jithurjacob/Windows-10-Toast-Notifications
     """
 
+    _uniqueid = 0
+
     def __init__(self):
         """Initialize."""
         self._thread = None
@@ -90,8 +98,21 @@ class ToastNotifier(object):
         :icon_path: path to the .ico file to custom notification
         :duration: delay in seconds before notification self-destruction, None for no-self-destruction
         :sound_path: path to the .wav file to custom notification
+        :callback_on_click: function to run on click
         """
         self.duration=duration
+
+        """
+        root = ConnectRegistry(None, HKEY_CURRENT_USER)
+        access_key = OpenKeyEx(root, r"Control Panel\Accessibility", access=KEY_SET_VALUE | KEY_QUERY_VALUE)
+        oldValue = EnumValue(access_key, 0)[1]
+        SetValueEx(access_key, "MessageDuration", 0, REG_DWORD, {length})
+
+        ...
+
+        SetValueEx(access_key, "MessageDuration", 0, REG_DWORD, oldValue)
+        CloseKey(access_key)
+        """
 
         # Make the notification end on click
         def callback():            
@@ -103,15 +124,15 @@ class ToastNotifier(object):
         # Register the window class.
         self.wc = WNDCLASS()
         self.hinst = self.wc.hInstance = GetModuleHandle(None)
-        self.wc.lpszClassName = str("PythonTaskbar")  # must be a string
+        self.wc.lpszClassName = str(f"PythonTaskbar{ToastNotifier._uniqueid}")  # must be a string
+        ToastNotifier._uniqueid += 1
         self.wc.lpfnWndProc = self._decorator(self.wnd_proc, callback)  # could instead specify simple mapping
         try:
             self.classAtom = RegisterClass(self.wc)
         except Exception as e:
             logging.error("Some trouble with classAtom ({})".format(e))
         style = WS_OVERLAPPED | WS_SYSMENU
-        buttonStyle = WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON
-        self.hwnd = CreateWindow(self.classAtom, "Taskbar", style,
+        self.hwnd = CreateWindow(self.classAtom, "Python Taskbar", style,
                                  0, 0, CW_USEDEFAULT,
                                  CW_USEDEFAULT,
                                  0, 0, self.hinst, None)
@@ -135,6 +156,7 @@ class ToastNotifier(object):
         flags = NIF_ICON | NIF_MESSAGE | NIF_TIP
         nid = (self.hwnd, 0, flags, WM_USER + 20, hicon, tooltip)
         Shell_NotifyIcon(NIM_ADD, nid)
+        print("making message")
         Shell_NotifyIcon(NIM_MODIFY, (self.hwnd, 0, NIF_INFO,
                                       WM_USER + 20,
                                       hicon, tooltip, msg, 0,
@@ -151,21 +173,22 @@ class ToastNotifier(object):
             except Exception as e:
                 logging.error("Some trouble with the sound file ({}): {}"
                              .format(sound_path, e))
-        
+        print("pumping message")
         PumpMessages()
         # take a rest then destroy
         if duration is not None:
             while self.duration > 0:
                 sleep(0.1)
                 self.duration -= 0.1
-                
+
+            print("destroying window")
             DestroyWindow(self.hwnd)
             UnregisterClass(self.wc.lpszClassName, self.hinst)
-        return None
+        return
 
     def show_toast(self, title="Notification", msg="Here comes the message",
-                    icon_path=None, duration=0, sound_path=None,
-                    tooltip="Tooltip", threaded=False, callback_on_click=None):
+                icon_path=None, duration=0, sound_path=None,
+                tooltip="Tooltip", threaded=False, callback_on_click=None):
         """Notification settings.
 
         :title: notification title
@@ -173,19 +196,15 @@ class ToastNotifier(object):
         :icon_path: path to the .ico file to custom notification
         :sound_path: path to the .wav file to custom notification
         :duration: delay in seconds before notification self-destruction, None for no-self-destruction
+        :callback_on_click: function to run on click
         """
         if not threaded:
             self._show_toast(title, msg, icon_path, duration, sound_path, tooltip, callback_on_click)
         else:
-            if self.notification_active():
-                # We have an active notification, let is finish so we don't spam them
-                return False
-
             self._thread = threading.Thread(target=self._show_toast, args=(
                 title, msg, icon_path, duration, sound_path, tooltip, callback_on_click
             ))
             self._thread.start()
-        return True
 
     def notification_active(self):
         """See if we have an active notification showing"""
