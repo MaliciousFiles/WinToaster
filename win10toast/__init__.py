@@ -17,7 +17,6 @@ from time import sleep
 from time import time
 from winsound import SND_FILENAME
 from winsound import PlaySound
-from random import randint
 from ctypes import windll
 from ctypes import create_unicode_buffer
 from pywintypes import error as WinTypesException
@@ -38,13 +37,10 @@ from win32con import LR_LOADFROMFILE
 from win32con import WM_USER
 from win32con import WS_OVERLAPPED
 from win32con import WS_SYSMENU
-from win32con import HWND_BROADCAST
-from win32con import WM_SETTINGCHANGE
 from win32gui import CreateWindow
 from win32gui import DestroyWindow
 from win32gui import LoadIcon
 from win32gui import LoadImage
-from win32gui import SendMessage
 from win32gui import NIF_ICON
 from win32gui import NIF_INFO
 from win32gui import NIF_MESSAGE
