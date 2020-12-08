@@ -17,8 +17,15 @@ from time import sleep
 from time import time
 from winsound import SND_FILENAME
 from winsound import PlaySound
-from winreg import OpenKeyEx, SetValueEx, EnumValue, CloseKey, REG_DWORD, KEY_QUERY_VALUE, KEY_SET_VALUE, ConnectRegistry, HKEY_CURRENT_USER
 from random import randint
+from ctypes import windll
+from ctypes import create_unicode_buffer
+from pywintypes import error as WinTypesException
+
+SystemParametersInfoW = windll.user32.SystemParametersInfoW
+SPI_SETMESSAGEDURATION = 0x2017
+SPI_GETMESSAGEDURATION = 0x2016
+SPIF_SENDCHANGE = 0x2
 
 # 3rd party modules
 from win32api import GetModuleHandle
@@ -72,7 +79,9 @@ class ToastNotifier(object):
 
     def __init__(self):
         """Initialize."""
-        self._thread = None
+        self._threads = []
+        self._nextthread = None
+        self._queueactive = False
 
     @staticmethod
     def _decorator(func, callback=None):
@@ -88,45 +97,31 @@ class ToastNotifier(object):
         return inner
 
     def _show_toast(self, title, msg,
-                    icon_path, duration,
+                    icon_path, delay,
                     sound_path, tooltip,
-                    callback_on_click):
+                    duration,
+                    callback_on_click,
+                    kill_without_click):
         """Notification settings.
 
         :title: notification title
         :msg: notification message
         :icon_path: path to the .ico file to custom notification
-        :duration: delay in seconds before notification self-destruction, None for no-self-destruction
+        :delay: delay in seconds before notification self-destruction, None for no-self-destruction
         :sound_path: path to the .wav file to custom notification
+        :duration: how long the notification stays on the screen in seconds
         :callback_on_click: function to run on click
+        :kill_without_click: Kill the tray icon after the notification goes away, even if it wasn't clicked
         """
-        self.duration=duration
-
-        """
-        root = ConnectRegistry(None, HKEY_CURRENT_USER)
-        access_key = OpenKeyEx(root, r"Control Panel\Accessibility", access=KEY_SET_VALUE | KEY_QUERY_VALUE)
-        oldValue = EnumValue(access_key, 0)[1]
-        SetValueEx(access_key, "MessageDuration", 0, REG_DWORD, {length})
-
-        ...
-
-        SetValueEx(access_key, "MessageDuration", 0, REG_DWORD, oldValue)
-        CloseKey(access_key)
-        """
-
-        # Make the notification end on click
-        def callback():            
-            self.duration=0
-
-            if callback_on_click is not None:
-                callback_on_click()
+        self.delay = delay
+        self.destroy_window = kill_without_click
         
         # Register the window class.
         self.wc = WNDCLASS()
         self.hinst = self.wc.hInstance = GetModuleHandle(None)
         self.wc.lpszClassName = str(f"PythonTaskbar{ToastNotifier._uniqueid}")  # must be a string
         ToastNotifier._uniqueid += 1
-        self.wc.lpfnWndProc = self._decorator(self.wnd_proc, callback)  # could instead specify simple mapping
+        self.wc.lpfnWndProc = self._decorator(self.wnd_proc, callback_on_click)  # could instead specify simple mapping
         try:
             self.classAtom = RegisterClass(self.wc)
         except Exception as e:
@@ -152,15 +147,38 @@ class ToastNotifier(object):
                           .format(icon_path, e))
             hicon = LoadIcon(0, IDI_APPLICATION)
 
+        # set the duration
+        buff = create_unicode_buffer(10)
+        SystemParametersInfoW(SPI_GETMESSAGEDURATION, 0, buff, 0)
+        try:
+            oldlength = int(buff.value.encode('unicode_escape').decode().replace("\\", "0"), 16)
+        except ValueError:
+            oldlength = 5 # default notification length
+            
+        durationOutput=SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0, duration, SPIF_SENDCHANGE)
+        SystemParametersInfoW(SPI_GETMESSAGEDURATION, 0, buff, 0)
+
+        durationError=False
+        try:
+            int(buff.value.encode('unicode_escape').decode().replace("\\", "0"), 16)
+        except ValueError:
+            durationError=True
+        if durationOutput == 0 or duration > 255 or durationError: 
+            SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0, oldlength, SPIF_SENDCHANGE)
+            logging.error("Some trouble with the duration ({}): Invalid duration length"
+                          .format(duration))
+            raise RuntimeError("Invalid duration length")
+
         # Taskbar icon
         flags = NIF_ICON | NIF_MESSAGE | NIF_TIP
         nid = (self.hwnd, 0, flags, WM_USER + 20, hicon, tooltip)
+
         Shell_NotifyIcon(NIM_ADD, nid)
-        print("making message")
         Shell_NotifyIcon(NIM_MODIFY, (self.hwnd, 0, NIF_INFO,
                                       WM_USER + 20,
                                       hicon, tooltip, msg, 0,
                                       title, 0 if sound_path == None else NIIF_NOSOUND))
+
         # play the custom sound
         if sound_path is not None:
             sound_path = path.realpath(sound_path)
@@ -173,49 +191,100 @@ class ToastNotifier(object):
             except Exception as e:
                 logging.error("Some trouble with the sound file ({}): {}"
                              .format(sound_path, e))
-        print("pumping message")
+                
         PumpMessages()
-        # take a rest then destroy
-        if duration is not None:
-            while self.duration > 0:
-                sleep(0.1)
-                self.duration -= 0.1
+        # put the notification duration back to normal
+        SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0, oldlength, SPIF_SENDCHANGE)
 
-            print("destroying window")
+        # take a rest then destroy
+        if self.delay is not None and self.destroy_window:
+            while self.delay > 0:
+                sleep(0.1)
+                self.delay -= 0.1
+                
             DestroyWindow(self.hwnd)
             UnregisterClass(self.wc.lpszClassName, self.hinst)
+            try: # sometimes the tray icon sticks around until you click it - this should stop it
+                self.remove_window(self.hwnd)
+            except WinTypesException:
+                pass
         return
 
     def show_toast(self, title="Notification", msg="Here comes the message",
-                icon_path=None, duration=0, sound_path=None,
-                tooltip="Tooltip", threaded=False, callback_on_click=None):
+                icon_path=None, delay=0, sound_path=None, tooltip="Tooltip",
+                threaded=False, skip_queue=False, duration=5,
+                callback_on_click=None, kill_without_click=True):
         """Notification settings.
 
         :title: notification title
         :msg: notification message
         :icon_path: path to the .ico file to custom notification
+        :delay: delay in seconds before notification self-destruction, None for no-self-destruction
         :sound_path: path to the .wav file to custom notification
-        :duration: delay in seconds before notification self-destruction, None for no-self-destruction
-        :callback_on_click: function to run on click
+        :threaded: queues the notification to run without stopping the entire script
+        :skip_queue: only takes effect if :threaded: is True; puts the notification to the top of the queue
+        :duration: how long the notification stays on the screen in seconds
+        :callback_on_click: function to run on click of the notification or tray icon
+        :kill_without_click: Kill the tray icon after the notification goes away, even if it wasn't clicked
         """
         if not threaded:
-            self._show_toast(title, msg, icon_path, duration, sound_path, tooltip, callback_on_click)
+            self._show_toast(title, msg, icon_path, delay, sound_path, tooltip, duration, callback_on_click, kill_without_click)
+            return self.hwnd # for inputing into destroy_message
         else:
-            self._thread = threading.Thread(target=self._show_toast, args=(
-                title, msg, icon_path, duration, sound_path, tooltip, callback_on_click
-            ))
-            self._thread.start()
+            thread=threading.Thread(target=self._show_toast, args=(
+                    title, msg, icon_path, delay, sound_path, tooltip, duration, callback_on_click, kill_without_click
+                ))
+            if not skip_queue:
+                self._threads.append(thread)
+            else:
+                self._nextthread = thread
+                
+            if not self._queueactive:
+                threading.Thread(target=self._run_queue).start()
 
+    def _run_queue(self):
+        self._queueactive = True
+
+        while True:
+            if self._nextthread == None:
+                try:
+                    try:
+                        self._threads[0].start()
+                        
+                        while self._threads[0].is_alive():
+                            pass
+                    except RuntimeError:
+                        pass
+                    
+                    self._threads.pop(0)
+                except IndexError:
+                    break
+            else:
+                try:
+                    self._nextthread.start()
+                    while self._nextthread.is_alive():
+                        pass
+                except RuntimeError:
+                    pass
+
+                self._nextthread = None
+
+        self._queueactive = False
+            
     def notification_active(self):
         """See if we have an active notification showing"""
-        if self._thread != None and self._thread.is_alive():
-            # We have an active notification, let is finish we don't spam them
+        if self._nextthread.is_alive() or any(list(map(lambda x:x.is_alive(), self._threads))):
+            # We have an active notification, let us finish we don't spam them
             return True
         return False
 
     def wnd_proc(self, hwnd, msg, wparam, lparam, **kwargs):
         """Messages handler method"""
         if lparam == PARAM_CLICKED:
+            # make it stop on click
+            self.delay = None if self.delay == None else 0
+            self.destroy_window = True
+
             # callback goes here
             if kwargs.get('callback'):
                 kwargs.pop('callback')()
@@ -225,8 +294,12 @@ class ToastNotifier(object):
 
     def on_destroy(self, hwnd, msg, wparam, lparam):
         """Clean after notification ended."""
-        nid = (self.hwnd, 0)
-        Shell_NotifyIcon(NIM_DELETE, nid)
+        if self.delay != None and self.destroy_window:
+            self.remove_window(hwnd)
         PostQuitMessage(0)
 
         return None
+
+    def remove_window(self, hwnd): # for removing a tray icon if it wasn't destroyed automatically
+        nid = (hwnd, 0)
+        Shell_NotifyIcon(NIM_DELETE, nid)
