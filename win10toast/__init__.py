@@ -20,6 +20,7 @@ from winsound import PlaySound
 from ctypes import windll
 from ctypes import create_unicode_buffer
 from pywintypes import error as WinTypesException
+from uuid import uuid4
 
 SystemParametersInfoW = windll.user32.SystemParametersInfoW
 SPI_SETMESSAGEDURATION = 0x2017
@@ -71,8 +72,6 @@ class ToastNotifier(object):
     from: https://github.com/jithurjacob/Windows-10-Toast-Notifications
     """
 
-    _uniqueid = 0
-
     def __init__(self):
         """Initialize."""
         self._threads = []
@@ -115,8 +114,7 @@ class ToastNotifier(object):
         # Register the window class.
         self.wc = WNDCLASS()
         self.hinst = self.wc.hInstance = GetModuleHandle(None)
-        self.wc.lpszClassName = str(f"PythonTaskbar{ToastNotifier._uniqueid}")  # must be a string
-        ToastNotifier._uniqueid += 1
+        self.wc.lpszClassName = str(f"PythonTaskbar - {uuid4().hex}")  # must be a string
         self.wc.lpfnWndProc = self._decorator(self.wnd_proc, callback_on_click)  # could instead specify simple mapping
         try:
             self.classAtom = RegisterClass(self.wc)
@@ -225,7 +223,7 @@ class ToastNotifier(object):
         """
         if not threaded:
             self._show_toast(title, msg, icon_path, delay, sound_path, tooltip, duration, callback_on_click, kill_without_click)
-            return self.hwnd # for inputing into destroy_message
+            return self.hwnd # for inputing into remove_window
         else:
             thread=threading.Thread(target=self._show_toast, args=(
                     title, msg, icon_path, delay, sound_path, tooltip, duration, callback_on_click, kill_without_click
