@@ -8,7 +8,6 @@ __all__ = ['ToastNotifier']
 # ########## Libraries #############
 # ##################################
 # standard library
-import logging
 import threading
 from os import path
 from pkg_resources import Requirement
@@ -119,7 +118,7 @@ class ToastNotifier(object):
         try:
             self.classAtom = RegisterClass(self.wc)
         except Exception as e:
-            logging.error("Some trouble with classAtom ({})".format(e))
+            raise type(e)(f"Some trouble with classAtom:\n{e}") from None
         style = WS_OVERLAPPED | WS_SYSMENU
         self.hwnd = CreateWindow(self.classAtom, "Python Taskbar", style,
                                  0, 0, CW_USEDEFAULT,
@@ -137,8 +136,7 @@ class ToastNotifier(object):
             hicon = LoadImage(self.hinst, icon_path,
                               IMAGE_ICON, 0, 0, icon_flags)
         except Exception as e:
-            logging.error("Some trouble with the icon ({}): {}"
-                          .format(icon_path, e))
+            raise type(e)(f"Some trouble with the icon ({icon_path}):\n{e}") from None
             hicon = LoadIcon(0, IDI_APPLICATION)
 
         # set the duration
@@ -159,9 +157,7 @@ class ToastNotifier(object):
             durationError=True
         if durationOutput == 0 or duration > 255 or durationError: 
             SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0, oldlength, SPIF_SENDCHANGE)
-            logging.error("Some trouble with the duration ({}): Invalid duration length"
-                          .format(duration))
-            raise RuntimeError("Invalid duration length")
+            raise RuntimeError(f"Some trouble with the duration ({duration}): Invalid duration length")
 
         # Taskbar icon
         flags = NIF_ICON | NIF_MESSAGE | NIF_TIP
@@ -177,14 +173,12 @@ class ToastNotifier(object):
         if sound_path is not None:
             sound_path = path.realpath(sound_path)
             if not path.exists(sound_path):
-                logging.error("Some trouble with the sound file ({}): [Errno 2] No such file"
-                              .format(sound_path))
+                raise IOError("Some trouble with the sound file ({sound_path}): [Errno 2] No such file")
 
             try:
                 PlaySound(sound_path, SND_FILENAME)
             except Exception as e:
-                logging.error("Some trouble with the sound file ({}): {}"
-                             .format(sound_path, e))
+                raise type(e)(f"Some trouble with the sound file ({sound_path}): {e}") from None
                 
         PumpMessages()
         # put the notification duration back to normal
