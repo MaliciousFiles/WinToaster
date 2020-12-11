@@ -18,25 +18,25 @@ def from_here(relative_path):
 requirements_txt = parse_requirements(from_here("requirements.txt"))
 
 setup(
-    name="win10toast",
-    version="0.93",
+    name="win_toaster",
+    version="0.0",
     install_requires=requirements_txt,
-    packages=["win10toast"],
+    packages=["win_toaster"],
     license="BSD",
-    url="https://github.com/jithurjacob/Windows-10-Toast-Notifications",
+    url="https://github.com/MaliciousFiles/WinToaster",
     download_url = 'https://github.com/jithurjacob/Windows-10-Toast-Notifications/tarball/0.9',
     description=(
-        "An easy-to-use Python library for displaying "
-        "Windows 10 Toast Notifications"
+        "A simple python library for displaying"
+        "Toast Notifications in Windows 10"
     ),
     include_package_data=True,
     package_data={
         '': ['*.txt'],
-        'win10toast': ['data/*.ico'],
+        'win_toaster': ['data/*.ico'],
     },
     long_description=read('README.md'),
-    author="Jithu R Jacob",
-    author_email="jithurjacob@gmail.com",
+    author="Malcolm R",
+    author_email="mtroalson@gmail.com",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Topic :: Utilities",
