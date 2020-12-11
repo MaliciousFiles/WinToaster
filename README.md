@@ -25,7 +25,7 @@ repository and then build from source:
 2.  Enter the WinToaster root directory (the directory with the `setup.py`)
 3.  Build from source (you must install *pip* first):
     ```
-    pip install -e .
+    pip install .
     ```
 
 ## Contributing
@@ -43,8 +43,10 @@ Follow the steps below to contribute:
     `git clone YOUR_REPOSITORY_LINK`
 3.  Add the original repository as the upstream, like so:
     `git remote add upstream https://github.com/MaliciousFiles/WinToaster.git`
-4.  Make any changes, and push them to your repository.
-5.  Open a pull request on GitHub.
+4.  Enter the `WinToaster` directory. Install the development version of
+    WinToaster with `pip install -e .`
+5.  Make any changes, and push them to your repository.
+6.  Open a pull request on GitHub.
 
 ### Contributors
 
