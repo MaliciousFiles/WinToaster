@@ -261,10 +261,8 @@ class ToastNotifier(object):
             
     def notification_active(self):
         """See if we have an active notification showing"""
-        if self._nextthread.is_alive() or any(list(map(lambda x:x.is_alive(), self._threads))):
-            # We have an active notification, let us finish we don't spam them
-            return True
-        return False
+        return self._nextthread != None and self._nextthread.is_alive())
+                or any(list(map(lambda x:x.is_alive(), self._threads))):
 
     def wnd_proc(self, hwnd, msg, wparam, lparam, **kwargs):
         """Messages handler method"""
