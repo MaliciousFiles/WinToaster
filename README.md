@@ -1,54 +1,69 @@
-# Windows 10 Toast Notifications
-[![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)  [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fjithurjacob%2FWindows-10-Toast-Notifications.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fjithurjacob%2FWindows-10-Toast-Notifications?ref=badge_shield) [![HitCount](http://hits.dwyl.io/jithurjacob/Windows-10-Toast-Notifications.svg)](http://hits.dwyl.io/jithurjacob/Windows-10-Toast-Notifications) [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://lbesson.mit-license.org/)
+# WinToaster
 
-An easy-to-use Python library for displaying Windows 10 Toast Notifications which is useful for Windows GUI development.
+> Effortlessly create toast notifications for windows 10.
 
+[![forthebadge](https://forthebadge.com/images/badges/made-with-python.svg)](https://forthebadge.com)
+[![forthebadge](https://forthebadge.com/images/badges/open-source.svg)](https://forthebadge.com)
 
-![o7ja4 1](https://cloud.githubusercontent.com/assets/7101452/19763806/75f71ba4-9c5d-11e6-9f16-d0d4bf43e63e.png)
+***
 
+WinToaster is a minimal, yet powerful library for creating toast notifications
+on Windows 10. Originally branched from
+[Windows-10-Toast-Notifications](https://github.com/jithurjacob/Windows-10-Toast-Notifications),
+WinToaster allows a higher level of customization, including custom sound files
+and tooltips. This open source library is licensed under MIT: all contributions
+are welcome.
 
-## Installation
+## Getting Started
 
-```
-pip install win10toast
-```
+WinToaster is still in its early stages of development, and thus is not yet
+available on PyPI. In order to install the package, you must clone the
+repository and then build from source:
 
-## Requirements
+1.  Clone or download the repository from
+    [GitHub](https://github.com/MaliciousFiles/WinToaster/)
+2.  Enter the WinToaster root directory (the directory with the `setup.py`)
+3.  Build from source (you must install *pip* first):
+    ```
+    pip install .
+    ```
 
-### Installation of pywin32
-```
-pypiwin32
-setuptools
-```
+## Contributing
 
-## Example
+Anyone can contribute. Although the code primarily deals with Windows 10,
+fixing typos, adding documentation, and improving code style can be done from
+any device. Before you contribute, make sure you have both Git and Python3
+installed. If you have any trouble with the steps below, be sure to check out
+[GitHub's wonderful forking tutorial](https://docs.github.com/en/enterprise-server@2.20/github/getting-started-with-github/fork-a-repo).
+Follow the steps below to contribute:
 
-```
-from win10toast import ToastNotifier
-toaster = ToastNotifier()
-toaster.show_toast("Hello World!!!",
-                   "Python is 10 seconds awsm!",
-                   icon_path="custom.ico",
-                   duration=10)
+1.  Fork the [repository](https://github.com/MaliciousFiles/WinToaster/) to your
+    personal GitHub account.
+2.  Clone your repository to your computer using
+    `git clone YOUR_REPOSITORY_LINK`
+3.  Add the original repository as the upstream, like so:
+    `git remote add upstream https://github.com/MaliciousFiles/WinToaster.git`
+4.  Enter the `WinToaster` directory. Install the development version of
+    WinToaster with `pip install -e .`
+5.  Make any changes, and push them to your repository.
+6.  Open a pull request on GitHub.
 
-toaster.show_toast("Example two",
-                   "This notification is in it's own thread!",
-                   icon_path=None,
-                   duration=5,
-                   threaded=True)
-# Wait for threaded notification to finish
-while toaster.notification_active(): time.sleep(0.1)
-```
+### Contributors
 
-## Contributors [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/jithurjacob/Windows-10-Toast-Notifications/issues)
+-   Original code from
+    [Charnelx/Windows-10-Toast-Notifications](https://github.com/Charnelx/Windows-10-Toast-Notifications)
+    and
+    [jithurjacob/Windows-10-Toast-Notifications](https://github.com/jithurjacob/Windows-10-Toast-Notifications)
+-   [MaliciousFiles](https://github.com/MaliciousFiles) - *Malcolm Roalson* -
+    Extended the code, and created WinToaster
+-   [mrmaxguns](https://github.com/mrmaxguns) - *Maxim Rebguns* - Code quality,
+    CI, documentation
 
-+ [sidc9](https://github.com/sidc9)
-+ [sakurai-youhei](https://github.com/sakurai-youhei)
-+ [BroderickCarlin](https://github.com/BroderickCarlin)
-+ [florianluediger](https://github.com/florianluediger)
-+ [eric-wieser](https://github.com/eric-wieser)
-+ [Guts](https://github.com/Guts)
+## Versioning
 
+WinToaster uses [SemVer](https://semver.org/) for versioning.
 
 ## License
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fjithurjacob%2FWindows-10-Toast-Notifications.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fjithurjacob%2FWindows-10-Toast-Notifications?ref=badge_large)
+
+WinToaster may be freely distributed with the rules of the MIT license. See
+[LICENSE](LICENSE) for details.
