@@ -186,7 +186,8 @@ class Toast():
             # This won't work until it is an official PyPA Module
             #icon_path = resource_filename(Requirement.parse("win_toaster"),
             #                              "win_toaster/data/python.ico")
-            icon_path = path.realpath("data/python.ico") # Temporary fix
+            icon_path = resource_filename(Requirement.parse("WinToaster"),
+                                          "win_toaster/data/python.ico" # Temporary fix
         icon_flags = LR_LOADFROMFILE | LR_DEFAULTSIZE
         try:
             hicon = LoadImage(self.toast_data["hinst"], icon_path, IMAGE_ICON, 0, 0, icon_flags)
