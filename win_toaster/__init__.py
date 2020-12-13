@@ -247,7 +247,8 @@ class Toast:
         if self.toast_data["icon_path"] is not None:
             icon_path = path.realpath(self.toast_data["icon_path"])
         else:
-            icon_path =  pkg_resources.path(data, "python.ico")
+            with pkg_resources.path(data, "python.ico") as icon_context:
+                icon_path = icon_context
 
         icon_flags = LR_LOADFROMFILE | LR_DEFAULTSIZE
 
