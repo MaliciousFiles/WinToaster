@@ -23,7 +23,8 @@ VERSION = '0.0.1'
 # What packages are required for this module to be executed?
 REQUIRED = [
     "pywin32",
-    "setuptools"
+    "setuptools",
+    'importlib_resources; python_version < "3.7"'
 ]
 
 # What packages are optional?
