@@ -31,7 +31,7 @@ repository and then build from source:
 
 ## Docs
 
-The official documentation is at https://wonderwords.readthedocs.io.
+The official documentation is at https://wintoaster.readthedocs.io.
 
 ## Contributing
 
