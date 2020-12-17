@@ -17,6 +17,9 @@ notifications with the following features:
 * A custom image file that shows on the notification.
 * Windows tooltip support.
 
+.. index::
+   single: get started
+
 Get up and going
 ----------------
 

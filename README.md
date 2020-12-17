@@ -1,6 +1,7 @@
-# WinToaster
+# [WinToaster](https://wintoaster.readthedocs.io)
 
 > Effortlessly create toast notifications for windows 10.
+*View [the documentation](https://wintoaster.readthedocs.io)*
 
 [![forthebadge](https://forthebadge.com/images/badges/made-with-python.svg)](https://forthebadge.com)
 [![forthebadge](https://forthebadge.com/images/badges/open-source.svg)](https://forthebadge.com)
@@ -27,6 +28,10 @@ repository and then build from source:
     ```
     pip install .
     ```
+
+## Docs
+
+The official documentation is at https://wintoaster.readthedocs.io.
 
 ## Contributing
 
