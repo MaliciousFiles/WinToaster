@@ -89,6 +89,52 @@ def create_toast(
                          even if it wasn't clicked
     """
 
+    # Set default icon_path
+    if icon_path is None:
+        with pkg_resources.path(data, "python.ico") as icon_context:
+            icon_path = str(icon_context.absolute())
+    icon_path = path.realpath(icon_path)
+
+    # Make sure icon_path exists and is a .ico
+    if not path.exists(icon_path):
+        raise FileNotFoundError(f"Icon file could not be found ({icon_path})")
+    if path.splitext(icon_path)[1] != '.ico':
+        raise IOError(f"Icon file does not end with '.ico' ({icon_path})")
+
+    # Make sure sound_path exists and is a .wav
+    if sound_path:
+        if not path.exists(sound_path):
+            raise FileNotFoundError(f"Sound file could not be found ({sound_path})")
+        if path.splitext(sound_path)[1] != '.wav':
+            raise IOError(f"Sound file does not end with '.wav' ({sound_path})")
+
+    # Make sure duration is valid
+    buff = create_unicode_buffer(10)
+    SystemParametersInfoW(SPI_GETMESSAGEDURATION, 0, buff, 0)
+    try:
+        oldlength = int(
+            buff.value.encode("unicode_escape").decode().replace("\\", "0"), 16
+        )
+    except ValueError:
+        oldlength = 5  # Default notification length
+
+    duration_output = SystemParametersInfoW(
+        SPI_SETMESSAGEDURATION, 0, duration, SPIF_SENDCHANGE
+    )
+    SystemParametersInfoW(SPI_GETMESSAGEDURATION, 0, buff, 0)
+
+    duration_error = False
+    try:
+        int(buff.value.encode("unicode_escape").decode().replace("\\", "0"), 16)
+    except ValueError:
+        duration_error = True
+
+    if duration_output == 0 or duration > 255 or duration_error:
+        SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0,
+                              oldlength, SPIF_SENDCHANGE)
+        raise RuntimeError(f"Invalid duration length ({duration})")
+    
+
     return Toast(
         title,
         msg,
@@ -101,7 +147,6 @@ def create_toast(
         callback_on_click,
         kill_without_click,
     )
-
 
 class Toast:
     """A class representing a Windows 10 toast notification"""
@@ -219,14 +264,8 @@ class Toast:
             self.wnd_proc, self.toast_data["callback_on_click"]
         )
 
-        try:
-            self.toast_data["class_atom"] = RegisterClass(self.toast_data["wnd_class"])
-        except Exception as exception:
-            self.active = False
-            raise type(exception)(
-                f"Some trouble with class_atom:\n{exception}"
-            ) from None
-
+        self.toast_data["class_atom"] = RegisterClass(self.toast_data["wnd_class"])
+        
         style = WS_OVERLAPPED | WS_SYSMENU
         self.toast_data["hwnd"] = CreateWindow(
             self.toast_data["class_atom"],
@@ -244,25 +283,11 @@ class Toast:
 
         UpdateWindow(self.toast_data["hwnd"])
 
-        if self.toast_data["icon_path"] is not None:
-            icon_path = path.realpath(self.toast_data["icon_path"])
-        else:
-            with pkg_resources.path(data, "python.ico") as icon_context:
-                icon_path = str(icon_context.absolute())
-
         icon_flags = LR_LOADFROMFILE | LR_DEFAULTSIZE
 
-        try:
-            hicon = LoadImage(
-                self.toast_data["hinst"], icon_path, IMAGE_ICON, 0, 0, icon_flags
-            )
-        except Exception as exception:
-            hicon = LoadIcon(0, IDI_APPLICATION)
-            self.active = False
-            raise type(exception)(
-                f"Some trouble with the icon ({icon_path}):"
-                f"\n{exception}"
-            ) from None
+        hicon = LoadImage(
+            self.toast_data["hinst"], self.toast_data['icon_path'], IMAGE_ICON, 0, 0, icon_flags
+        )
 
         # Set the duration
         buff = create_unicode_buffer(10)
@@ -274,24 +299,10 @@ class Toast:
         except ValueError:
             oldlength = 5  # Default notification length
 
-        duration_output = SystemParametersInfoW(
-            SPI_SETMESSAGEDURATION, 0, self.toast_data["duration"], SPIF_SENDCHANGE
+        SystemParametersInfoW(
+            SPI_SETMESSAGEDURATION, 0, self.toast_data["duration"],
+            SPIF_SENDCHANGE
         )
-        SystemParametersInfoW(SPI_GETMESSAGEDURATION, 0, buff, 0)
-
-        duration_error = False
-        try:
-            int(buff.value.encode("unicode_escape").decode().replace("\\", "0"), 16)
-        except ValueError:
-            duration_error = True
-
-        if duration_output == 0 or self.toast_data["duration"] > 255 or duration_error:
-            SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0, oldlength, SPIF_SENDCHANGE)
-            self.active = False
-            raise RuntimeError(
-                f"Some trouble with the duration ({self.toast_data['duration']})"
-                ": Invalid duration length"
-            )
 
         # Taskbar icon
         flags = NIF_ICON | NIF_MESSAGE | NIF_TIP
@@ -315,6 +326,7 @@ class Toast:
 
         # Add tray icon and queue message
         Shell_NotifyIcon(NIM_ADD, nid)
+        print(NIIF_NOSOUND if self.toast_data["sound_path"] else 0)
         Shell_NotifyIcon(
             NIM_MODIFY,
             (
@@ -334,20 +346,7 @@ class Toast:
         # Play the custom sound
         if self.toast_data["sound_path"] is not None:
             sound_path = path.realpath(self.toast_data["sound_path"])
-            if not path.exists(sound_path):
-                self.active = False
-                raise IOError(
-                    f"Some trouble with the sound file ({sound_path}):"
-                    "[Errno 2] No such file"
-                )
-
-            try:
-                PlaySound(sound_path, SND_FILENAME)
-            except Exception as exception:
-                self.active = False
-                raise type(exception)(
-                    f"Some trouble with the sound file ({sound_path}):\n{exception}"
-                ) from None
+            PlaySound(sound_path, SND_FILENAME)
 
         # Show the message
         PumpMessages()
