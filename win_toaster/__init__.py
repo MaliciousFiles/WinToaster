@@ -239,28 +239,28 @@ class Toast:
             if kwargs.get("callback"):
                 kwargs.pop("callback")()
         if lparam in (MOUSE_UP, PARAM_CLICKED, PARAM_DESTROY):
-            self.destroy()
+            if not self.toast_data["keep_alive"] and self.destroy_window:
+                self.destroy()
 
     def destroy(self):
         """Destroys active toast"""
-        if not self.toast_data["keep_alive"] and self.destroy_window:
-            delay = self.toast_data["delay"]
-            while delay != None and delay > 0:
-                sleep(0.1)
-                delay -= 0.1
+        delay = self.toast_data["delay"]
+        while delay != None and delay > 0:
+            sleep(0.1)
+            delay -= 0.1
 
-            try:
-                DestroyWindow(self.toast_data["hwnd"])
-                UnregisterClass(
-                    self.toast_data["wnd_class"].lpszClassName, self.toast_data["hinst"]
-                )
-                Shell_NotifyIcon(NIM_DELETE, (self.toast_data["hwnd"], 0)) # Sometimes the try icon sticks around until you click it - this should stop that
-            except WinTypesException:
-                pass
+        try:
+            DestroyWindow(self.toast_data["hwnd"])
+            UnregisterClass(
+                self.toast_data["wnd_class"].lpszClassName, self.toast_data["hinst"]
+            )
+            Shell_NotifyIcon(NIM_DELETE, (self.toast_data["hwnd"], 0)) # Sometimes the try icon sticks around until you click it - this should stop that
+        except WinTypesException:
+            pass
 
-            PostQuitMessage()
+        PostQuitMessage()
 
-            self.active = False
+        self.active = False
 
     def display(self):
         """Display Toast"""
@@ -279,9 +279,7 @@ class Toast:
 
         # Register the window class
         self.toast_data["wnd_class"] = WNDCLASS()
-        self.toast_data["hinst"] = self.toast_data[
-            "wnd_class"
-        ].hInstance = GetModuleHandle(None)
+        self.toast_data["hinst"] = self.toast_data["wnd_class"].hInstance = GetModuleHandle(None)
         self.toast_data["wnd_class"].lpszClassName = f"PythonTaskbar{uuid4().hex}"
         self.toast_data["wnd_class"].lpfnWndProc = self._decorator(
             self._wnd_proc, self.toast_data["callback_on_click"]
@@ -376,4 +374,5 @@ class Toast:
         SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0, oldlength, SPIF_SENDCHANGE)
 
         # Take a rest then destroy
-        self.destroy()
+        if not self.toast_data["keep_alive"] and self.destroy_window:
+            self.destroy()
