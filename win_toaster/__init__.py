@@ -72,6 +72,7 @@ def create_toast(
     tooltip="Tooltip",
     threaded=False,
     duration=5,
+    keep_alive=False,
     callback_on_click=None,
     kill_without_click=True,
 ):
@@ -133,7 +134,7 @@ def create_toast(
         SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0,
                               oldlength, SPIF_SENDCHANGE)
         raise RuntimeError(f"Invalid duration length ({duration})")
-    
+
 
     return Toast(
         title,
@@ -144,6 +145,7 @@ def create_toast(
         tooltip,
         threaded,
         duration,
+        keep_alive,
         callback_on_click,
         kill_without_click,
     )
@@ -161,6 +163,7 @@ class Toast:
         tooltip,
         threaded,
         duration,
+        keep_alive,
         callback_on_click,
         kill_without_click,
     ):
@@ -178,7 +181,6 @@ class Toast:
 
         self.active = False
         self.thread = None
-        self.calledback = False
         self.destroy_window = kill_without_click
 
         self.toast_data = {
@@ -194,6 +196,7 @@ class Toast:
             "tooltip": tooltip,
             "threaded": threaded,
             "duration": duration,
+            "keep_alive": keep_alive,
             "callback_on_click": callback_on_click,
             "kill_without_click": kill_without_click,
         }
@@ -222,22 +225,35 @@ class Toast:
 
         if lparam in (PARAM_CLICKED, MOUSE_UP):
             # make it stop on click
-            self.toast_data["delay"] = (
-                0 if self.toast_data["delay"] is not None else None
-            )
+            self.toast_data["delay"] = 0
             self.destroy_window = True
 
             # callback goes here
-            if kwargs.get("callback") and not self.calledback:
+            if kwargs.get("callback"):
                 kwargs.pop("callback")()
-                self.calledback = True
         if lparam in (MOUSE_UP, PARAM_CLICKED, PARAM_DESTROY):
-            if self.toast_data["delay"] is not None and self.destroy_window:
-                try:
-                    Shell_NotifyIcon(NIM_DELETE, (hwnd, 0))
-                except WinTypesException:
-                    pass
-                PostQuitMessage()
+            self.destroy()
+
+    def destroy(self):
+        """Destroys active toast"""
+        if not self.toast_data["keep_alive"] and self.destroy_window:
+            delay = self.toast_data["delay"]
+            while delay != None and delay > 0:
+                sleep(0.1)
+                delay -= 0.1
+
+            try:
+                DestroyWindow(self.toast_data["hwnd"])
+                UnregisterClass(
+                    self.toast_data["wnd_class"].lpszClassName, self.toast_data["hinst"]
+                )
+                Shell_NotifyIcon(NIM_DELETE, (self.toast_data["hwnd"], 0)) # Sometimes the try icon sticks around until you click it - this should stop that
+            except WinTypesException:
+                pass
+
+            PostQuitMessage()
+
+            self.active = False
 
     def display(self):
         """Display the toast using the information from creation"""
@@ -249,7 +265,7 @@ class Toast:
             self._show_toast()
 
     def _show_toast(self):
-        """Displays the toast using the information from creation"""
+        """Internal function. Use Toast#display to display toasts"""
 
         self.active = True
         self.destroy_window = self.toast_data["kill_without_click"]
@@ -265,7 +281,7 @@ class Toast:
         )
 
         self.toast_data["class_atom"] = RegisterClass(self.toast_data["wnd_class"])
-        
+
         style = WS_OVERLAPPED | WS_SYSMENU
         self.toast_data["hwnd"] = CreateWindow(
             self.toast_data["class_atom"],
@@ -326,7 +342,6 @@ class Toast:
 
         # Add tray icon and queue message
         Shell_NotifyIcon(NIM_ADD, nid)
-        print(NIIF_NOSOUND if self.toast_data["sound_path"] else 0)
         Shell_NotifyIcon(
             NIM_MODIFY,
             (
@@ -354,17 +369,4 @@ class Toast:
         SystemParametersInfoW(SPI_SETMESSAGEDURATION, 0, oldlength, SPIF_SENDCHANGE)
 
         # Take a rest then destroy
-        if self.toast_data["delay"] is not None and self.destroy_window:
-            while self.toast_data["delay"] > 0:
-                sleep(0.1)
-                self.toast_data["delay"] -= 0.1
-
-            DestroyWindow(self.toast_data["hwnd"])
-            UnregisterClass(
-                self.toast_data["wnd_class"].lpszClassName, self.toast_data["hinst"]
-            )
-            try:  # Sometimes the try icon sticks around until you click it - this should stop that
-                Shell_NotifyIcon(NIM_DELETE, (self.toast_data["hwnd"], 0))
-            except WinTypesException:
-                pass
-        self.active = False
+        self.destroy()
