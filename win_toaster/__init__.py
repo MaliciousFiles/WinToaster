@@ -82,12 +82,15 @@ def create_toast(
     :title: notification title
     :msg: notification message
     :icon_path: path to the .ico file to custom notification
-    :delay: delay in seconds before notification self-destruction, None for no-self-destruction
+    :delay: delay in seconds before notification self-destruction
     :sound_path: path to the .wav file to custom notification
     :duration: how long the notification stays on the screen in seconds
+    :keep_alive: keep toast alive in System Tray whether it was clicked or not
     :callback_on_click: function to run on click
     :kill_without_click: Kill the tray icon after the notification goes away,
-                         even if it wasn't clicked
+                    even if it wasn't clicked
+
+    :return: Toast object
     """
 
     # Set default icon_path
@@ -174,9 +177,12 @@ class Toast:
         :delay: delay in seconds before notification self-destruction, None for no-self-destruction
         :sound_path: path to the .wav file to custom notification
         :duration: how long the notification stays on the screen in seconds
+        :keep_alive: keep toast alive in System Tray whether it was clicked or not
         :callback_on_click: function to run on click
         :kill_without_click: Kill the tray icon after the notification goes away,
                              even if it wasn't clicked
+
+        :return: Toast object
         """
 
         self.active = False
@@ -202,15 +208,16 @@ class Toast:
         }
 
     def is_alive(self):
-        """Returns True if the toast is currently being shown"""
+        """:return: if toast is currently being shown"""
 
         return self.active or (self.thread and self.thread.is_alive())
 
     @staticmethod
     def _decorator(func, callback=None):
         """
-        :param func: callable to decorate
-        :param callback: callable to run on mouse click within notification window
+        :func: callable to decorate
+        :callback: callable to run on mouse click within notification window
+
         :return: callable
         """
 
@@ -220,8 +227,8 @@ class Toast:
 
         return inner
 
-    def wnd_proc(self, hwnd, msg, wparam, lparam, **kwargs):
-        """Messages handler method"""
+    def _wnd_proc(self, hwnd, msg, wparam, lparam, **kwargs):
+        """Internal function, called by Windows on click"""
 
         if lparam in (PARAM_CLICKED, MOUSE_UP):
             # make it stop on click
@@ -256,7 +263,7 @@ class Toast:
             self.active = False
 
     def display(self):
-        """Display the toast using the information from creation"""
+        """Display Toast"""
 
         if self.toast_data["threaded"]:
             self.thread = Thread(target=self._show_toast)
@@ -265,7 +272,7 @@ class Toast:
             self._show_toast()
 
     def _show_toast(self):
-        """Internal function. Use Toast#display to display toasts"""
+        """Internal function called by Toast#display to show the toast"""
 
         self.active = True
         self.destroy_window = self.toast_data["kill_without_click"]
@@ -277,7 +284,7 @@ class Toast:
         ].hInstance = GetModuleHandle(None)
         self.toast_data["wnd_class"].lpszClassName = f"PythonTaskbar{uuid4().hex}"
         self.toast_data["wnd_class"].lpfnWndProc = self._decorator(
-            self.wnd_proc, self.toast_data["callback_on_click"]
+            self._wnd_proc, self.toast_data["callback_on_click"]
         )
 
         self.toast_data["class_atom"] = RegisterClass(self.toast_data["wnd_class"])
