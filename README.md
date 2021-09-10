@@ -17,16 +17,13 @@ are welcome.
 
 ## Getting Started
 
-WinToaster is still in its early stages of development, and thus is not yet
-available on PyPI. In order to install the package, you must clone the
-repository and then build from source:
+WinToaster is officially on PyPi, so you can just install it using pip:
 
-1.  Clone or download the repository from
-    [GitHub](https://github.com/MaliciousFiles/WinToaster/)
-2.  Enter the WinToaster root directory (the directory with the `setup.py`)
-3.  Build from source (you must install *pip* first):
-    ```
-    pip install .
+1.  Make sure pip is installed
+2.  Open command line and run `pip install WinToaster`
+3.  Open up your project and import using
+    ```python
+    import win_toaster
     ```
 
 ## Docs
