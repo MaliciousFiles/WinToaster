@@ -21,9 +21,25 @@ WinToaster is officially on PyPi, so you can just install it using pip:
 
 1.  Make sure pip is installed
 2.  Open command line and run `pip install WinToaster`
-3.  Open up your project and import using
+3.  Open up your project and import:
     ```python
     import win_toaster
+    ```
+4.  Create a notification:
+    ```python
+    win_toaster.create_toast(
+        title="Title",                # Notification title
+        msg="Message",                # Notifiation message
+        icon_path=None,               # path to a .ico file
+        delay=0,                      # delay in seconds before notification self-destruction
+        sound_path=None,              # path to a .wav file
+        tooltip="Tooltip",            # tooltip for tray icon
+        threaded=False,               # show toast in another thread (non-blocking)
+        duration=5,                   # how long the notification stays on the screen in seconds
+        keep_alive=False,             # keep toast alive in system tray whether it was clicked or not
+        callback_on_click=None,       # function to run on click
+        kill_without_click=True       # kill the tray icon after the notification goes away, even if it wasn't clicked
+    )
     ```
 
 ## Docs
